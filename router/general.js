@@ -38,20 +38,6 @@ public_users.post("/register", (req,res) => {
 });
 
 //Get the book list available in the shop
-////    res.send(JSON.stringify( books,null,4));
-//  return res.status(300).json({message: "Yet to be implemented"});
-//});
-//public_users.get('/', async function (req, res) {
-//  try {
-        // در محیط‌های توسعه، معمولاً به این صورت از axios استفاده می‌شود
-        // ما از آدرس localhost داخلی استفاده می‌کنیم
-//       const response = await axios.get("https://soranmirzaie-5000.theianext-1-labs-prod-misc-tools-us-east-0.proxy.cognitiveclass.ai:5000/");
-//        res.status(200).json(response.data);
-//    } catch (error) {
-//        res.status(200).send(JSON.stringify(books, null, 4));
-//    }
-//});
-
 public_users.get('/', async function (req, res) {
     const getBooks = new Promise((resolve) => {
         resolve(books);
@@ -66,55 +52,69 @@ public_users.get('/', async function (req, res) {
 });
 
 
-// Get book details based on ISBN
+
+//  Get book details based on ISBN using Promises/Async-Await 
 public_users.get('/isbn/:isbn', function (req, res) {
-    // 1. استخراج ISBN از پارامترهای درخواست
     const isbn = req.params.isbn;
 
-    // 2. پیدا کردن کتاب بر اساس ISBN در آبجکت books
-    // فرض بر این است که کلیدهای آبجکت books همان ISBNها هستند
-    const book = books[isbn];
-
-    // 3. بررسی وجود کتاب و ارسال پاسخ
-    if (book) {
-        // ارسال اطلاعات کتاب با فرمت JSON و مرتب شده
-        return res.status(200).send(JSON.stringify(book, null, 4));
-    } else {
-        // اگر کتاب پیدا نشد
-        return res.status(404).json({ message: "Book not found" });
-    }
-});
-  
-// Get book details based on author
-public_users.get('/author/:author', function (req, res) {
-    // 1. استخراج نام نویسنده از پارامترهای درخواست
-    const author = req.params.author;
-
-    // 2. به دست آوردن تمام کلیدهای آبجکت books (همان ISBNها)
-    const keys = Object.keys(books);
-
-    // ایجاد یک لیست برای ذخیره کتاب‌هایی که نویسنده‌شان مطابقت دارد
-    let booksByAuthor = [];
-
-    // 3. پیمایش (Iterate) در میان کتاب‌ها
-    keys.forEach(key => {
-        if (books[key].author === author) {
-            // اضافه کردن کتاب پیدا شده به لیست، همراه با ISBN آن
-            booksByAuthor.push({
-                "isbn": key,
-                "title": books[key].title,
-                "reviews": books[key].reviews
-            });
+    // ایجاد یک Promise برای شبیه‌سازی عملیات ناهمگام
+    const findBookByIsbn = new Promise((resolve, reject) => {
+        const book = books[isbn];
+        if (book) {
+            resolve(book);
+        } else {
+            reject({ status: 404, message: "Book not found" });
         }
     });
 
-    // 4. بررسی اینکه آیا کتابی پیدا شد یا خیر
-    if (booksByAuthor.length > 0) {
-        return res.status(200).send(JSON.stringify(booksByAuthor, null, 4));
-    } else {
-        return res.status(404).json({ message: "No books found by this author" });
-    }
+    // مدیریت نتیجه Promise
+    findBookByIsbn
+        .then((book) => {
+            res.status(200).send(JSON.stringify(book, null, 4));
+        })
+        .catch((error) => {
+            res.status(error.status || 500).json({ message: error.message });
+        });
 });
+  
+
+
+
+
+//Get book details based on Author using Promise callbacks
+public_users.get('/author/:author', function (req, res) {
+    const author = req.params.author;
+
+    // ۱. ایجاد یک Promise برای شبیه‌سازی عملیات ناهمگام جستجو
+    const findBooksByAuthor = new Promise((resolve, reject) => {
+        const bookKeys = Object.keys(books);
+        const filteredBooks = [];
+
+        // جستجو در میان تمام کتاب‌ها
+        bookKeys.forEach(key => {
+            if (books[key].author === author) {
+                filteredBooks.push({ isbn: key, ...books[key] });
+            }
+        });
+
+        if (filteredBooks.length > 0) {
+            resolve(filteredBooks);
+        } else {
+            reject({ status: 404, message: "No books found by this author" });
+        }
+    });
+
+    // ۲. استفاده از .then() و .catch() برای مدیریت نتیجه
+    findBooksByAuthor
+        .then((result) => {
+            return res.status(200).send(JSON.stringify(result, null, 4));
+        })
+        .catch((error) => {
+            return res.status(error.status || 500).json({ message: error.message });
+        });
+});
+
+
 
 // Get all books based on title
 public_users.get('/title/:title', function (req, res) {
